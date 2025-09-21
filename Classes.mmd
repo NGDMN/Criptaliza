@@ -1,11 +1,13 @@
 classDiagram
     %% UTILS / RESULT / AUDIT ENTRY
-    class OperationResult {
+    class OperationResult~T~ {
         -boolean success
         -String code
         -String message
-        -Object data
+        -T data
         -List~String~ errors
+        +getData(): T
+        +isSuccess(): boolean
     }
 
     class AuditEntry {
@@ -55,7 +57,7 @@ classDiagram
     class Auditable {
         <<interface>>
         +registerLog(entry: AuditEntry): void
-        +getHistory(): List~AuditLog~
+        +getHistory(): List~AuditEntry~
     }
 
     class Negotiable {
@@ -153,7 +155,7 @@ classDiagram
         -boolean twoFactorEnabled
         -String twoFactorSecret
         -UserType userType
-        -List~AuditLog~ logs
+        -List~AuditEntry~ logs
         +User()
         +User(String name, String email, String document)
         +boolean validateDocument(): boolean
@@ -161,7 +163,7 @@ classDiagram
         +boolean isActive(): boolean
         +void activate(): void
         +void deactivate(): void
-        +boolean verifyPassword(String password, EncryptionService encryption): boolean
+        +boolean verifyPassword(String password, EncryptionService encryption): boolean %% Critical: Security validation
         +void updateLastAccess(): void
         +void enableTwoFactor(String secret): void
         +String generateRecoveryToken(): String
@@ -186,7 +188,7 @@ classDiagram
         +boolean validateConsistency(): boolean
         +RiskLevel recalculateRiskLevel(): RiskLevel
         +boolean needsReassessment(): boolean
-        +Map~AssetType, BigDecimal~ getRecommendedAllocation(): Map
+        +Map~AssetType, BigDecimal~ getRecommendedAllocation(): Map~AssetType, BigDecimal~
     }
 
     class Wallet {
@@ -207,14 +209,14 @@ classDiagram
         +Wallet()
         +Wallet(User user, String name, WalletType type)
         +BigDecimal calculateBalance(): BigDecimal
-        +Map~String, BigDecimal~ getPerformance(LocalDate start, LocalDate end): Map
+        +Map~String, BigDecimal~ getPerformance(LocalDate start, LocalDate end): Map~String, BigDecimal~
         +void rebalance(RebalanceStrategy strategy): void
         +BigDecimal calculateNetWorth(): BigDecimal
-        +void blockBalance(BigDecimal amount): void
+        +void blockBalance(BigDecimal amount): void %% Critical: Throws InsufficientFundsException
         +void unblockBalance(BigDecimal amount): void
         +Position getPosition(Asset asset): Position
-        +List~Transaction~ getTransactions(LocalDate start, LocalDate end): List
-        +BigDecimal calculateReturn(int days): BigDecimal
+        +List~Transaction~ getTransactions(LocalDate start, LocalDate end): List~Transaction~
+        +BigDecimal calculateReturn(int days): BigDecimal %% Critical: Financial calculation
     }
 
     class Asset {
@@ -239,7 +241,7 @@ classDiagram
         +BigDecimal calculateVariation(int hours): BigDecimal
         +boolean validateAsset(): boolean
         +BigDecimal getPriceInBRL(): BigDecimal
-        +List~PriceHistory~ getHistory(int days): List
+        +List~PriceHistory~ getHistory(int days): List~PriceHistory~
         +BigDecimal calculateVolatility(int days): BigDecimal
         +boolean isStablecoin(): boolean
     }
@@ -265,12 +267,12 @@ classDiagram
         -Long version
         +Transaction()
         +Transaction(Wallet wallet, Asset asset, TransactionType type, BigDecimal qty)
-        +BigDecimal calculateTotal(): BigDecimal
+        +BigDecimal calculateTotal(): BigDecimal %% Critical: Financial calculation
         +void confirm(String hash): void
         +void cancel(String reason): void
         +boolean validate(): boolean
-        +BigDecimal calculateTax(): BigDecimal
-        +OperationResult~Transaction~ revert(): OperationResult~Transaction~
+        +BigDecimal calculateTax(): BigDecimal %% Critical: Tax implications
+        +OperationResult~Transaction~ revert(): OperationResult~Transaction~ %% Critical: Throws InvalidTransactionException
         +Duration getConfirmationTime(): Duration
     }
 
@@ -288,7 +290,7 @@ classDiagram
         +Position()
         +Position(Asset asset, BigDecimal quantity)
         +BigDecimal calculateCurrentValue(): BigDecimal
-        +BigDecimal calculatePnL(): BigDecimal
+        +BigDecimal calculatePnL(): BigDecimal %% Critical: Financial reporting
         +BigDecimal calculateReturnPercent(): BigDecimal
         +void addTransaction(Transaction t): void
         +BigDecimal getAvailableQuantity(): BigDecimal
@@ -307,7 +309,7 @@ classDiagram
         -TransactionStatus status
         -String orderType
         -String idempotencyKey
-        +OperationResult~Transaction~ execute(): OperationResult~Transaction~
+        +OperationResult~Transaction~ execute(): OperationResult~Transaction~ %% Critical: Throws InsufficientFundsException
         +void cancel(): void
         +boolean reachedLimit(): boolean
     }
@@ -320,8 +322,8 @@ classDiagram
         +Wallet createWallet(User user, String name): Wallet
         +Wallet buildRecommendedWallet(InvestorProfile profile): Wallet
         +void rebalanceWallet(Wallet wallet, RebalanceStrategy strategy): void
-        +Map~Asset, BigDecimal~ calculateAllocation(InvestorProfile profile, BigDecimal amount): Map
-        +List~Wallet~ listWallets(User user): List
+        +Map~Asset, BigDecimal~ calculateAllocation(InvestorProfile profile, BigDecimal amount): Map~Asset, BigDecimal~
+        +List~Wallet~ listWallets(User user): List~Wallet~
         +void transferBetweenWallets(Wallet from, Wallet to, BigDecimal amount): void
         +Report generateMonthlyReport(Wallet wallet): Report
     }
@@ -334,7 +336,7 @@ classDiagram
         -FraudDetectionService fraudService
         +InvestorProfile analyzeProfile(User user, Map~String, Integer~ questionnaire): InvestorProfile
         +double calculateRiskTolerance(InvestorProfile profile): double
-        +Map~Asset, BigDecimal~ suggestAllocation(InvestorProfile profile, BigDecimal amount): Map
+        +Map~Asset, BigDecimal~ suggestAllocation(InvestorProfile profile, BigDecimal amount): Map~Asset, BigDecimal~
         +boolean validateOperation(InvestorProfile profile, Transaction transaction): boolean
         +RiskReport evaluateWalletRisk(Wallet wallet): RiskReport
         +double calculateVaR(Wallet wallet, int days): double
@@ -349,12 +351,12 @@ classDiagram
         -RateLimiter rateLimiter
         -Map~String, Object~ sessionData
         +boolean connect(Map~String, String~ credentials): boolean
-        +Transaction executeOrder(Order order, String idempotencyKey): Transaction
+        +Transaction executeOrder(Order order, String idempotencyKey): Transaction %% Critical: Throws ExchangeException
         +BigDecimal getQuote(String symbol): BigDecimal
         +BigDecimal checkBalance(String currency): BigDecimal
-        +List~Transaction~ syncData(LocalDateTime since): List
+        +List~Transaction~ syncData(LocalDateTime since): List~Transaction~
         +OrderBook getOrderBook(String pair): OrderBook
-        +List~Candle~ getPriceHistory(String symbol, int days): List
+        +List~Candle~ getPriceHistory(String symbol, int days): List~Candle~
         +void disconnect(): void
     }
 
@@ -362,10 +364,10 @@ classDiagram
         -RiskAnalyzer riskAnalyzer
         -MarketAnalyzer marketAnalyzer
         -MachineLearningEngine mlEngine
-        +List~Asset~ generateRecommendations(InvestorProfile profile): List
+        +List~Asset~ generateRecommendations(InvestorProfile profile): List~Asset~
         +BigDecimal calculateIdealContribution(InvestorProfile profile, String goal): BigDecimal
-        +List~Opportunity~ identifyOpportunities(Market market): List
-        +List~Alert~ alertRisks(Wallet wallet): List
+        +List~Opportunity~ identifyOpportunities(Market market): List~Opportunity~
+        +List~Alert~ alertRisks(Wallet wallet): List~Alert~
         +Strategy suggestStrategy(InvestorProfile profile, Market market): Strategy
         +double calculateSuccessProbability(Asset asset, int days): double
     }
@@ -399,7 +401,7 @@ classDiagram
         -EncryptionService encryptionService
         -TokenService tokenService
         -SessionManager sessionManager
-        +String authenticate(String email, String password): String
+        +String authenticate(String email, String password): String %% Critical: Throws AuthenticationException
         +String generateToken(User user): String
         +boolean validateToken(String token): boolean
         +void configure2FA(User user): void
@@ -414,7 +416,7 @@ classDiagram
         -ChartGenerator chartGenerator
         +byte[] generateDashboard(Wallet wallet): byte[]
         +byte[] exportPDF(Map~String, Object~ data): byte[]
-        +Map~String, Object~ calculateMetrics(Wallet wallet, LocalDate start, LocalDate end): Map
+        +Map~String, Object~ calculateMetrics(Wallet wallet, LocalDate start, LocalDate end): Map~String, Object~
         +byte[] generateAccountStatement(Wallet wallet, int month, int year): byte[]
         +byte[] generateTaxReport(User user, int year): byte[]
     }
@@ -424,8 +426,8 @@ classDiagram
         -static final int ITERATIONS = 10000
         -String salt
         -SecretKey masterKey
-        +String encryptPassword(String password, String salt): String
-        +boolean verifyPassword(String password, String hash, String salt): boolean
+        +String encryptPassword(String password, String salt): String %% Critical: Security
+        +boolean verifyPassword(String password, String hash, String salt): boolean %% Critical: Security
         +String generateApiKey(): String
         +boolean validateSignature(byte[] data, byte[] signature): boolean
         +String encryptData(String data): String
@@ -438,9 +440,9 @@ classDiagram
         -BigDecimal transactionLimit
         -AMLService amlService
         -FraudDetectionService fraudService
-        +boolean validateLimits(Transaction transaction): boolean
+        +boolean validateLimits(Transaction transaction): boolean %% Critical: Throws LimitExceededException
         +boolean checkAML(Transaction transaction): boolean
-        +List~Anomaly~ detectAnomalies(List~Transaction~ transactions): List
+        +List~Anomaly~ detectAnomalies(List~Transaction~ transactions): List~Anomaly~
         +void auditOperation(Transaction transaction): void
         +boolean validateBlockchainAddress(String address, AssetType type): boolean
         +RiskScore calculateFraudScore(Transaction transaction): RiskScore
@@ -448,14 +450,14 @@ classDiagram
 
     class MarketDataService {
         +BigDecimal getCurrentPrice(String symbol): BigDecimal
-        +List~Candle~ getHistory(String symbol, int days): List
+        +List~Candle~ getHistory(String symbol, int days): List~Candle~
         +BigDecimal calculateVolatility(Asset asset, int days): BigDecimal
     }
 
     class InvestorProfileRepository {
         +InvestorProfile findByUser(UUID userId): InvestorProfile
         +void save(InvestorProfile profile): void
-        +List~InvestorProfile~ listAll(): List
+        +List~InvestorProfile~ listAll(): List~InvestorProfile~
     }
 
     class EmailService {

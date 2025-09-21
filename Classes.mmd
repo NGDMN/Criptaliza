@@ -555,16 +555,6 @@ classDiagram
     DatabaseConnection ..> DatabaseConnection : <<Singleton>>
 
     %% NOTES (documentation hints)
-    note right of WalletService
-      Document responsibilities:
-      - atomic wallet operations (block/unblock)
-      - optimistic locking using version
-      - cache consistency via DistributedCache invalidation
-    end note
+    note for WalletService "Document responsibilities:<br/>- atomic wallet operations (block/unblock)<br/>- optimistic locking using version<br/>- cache consistency via DistributedCache invalidation"
+    note for ExchangeIntegrator "Integration contract:<br/>- idempotencyKey required for external order placement<br/>- rate limiter applied per API key<br/>- map external errors to OperationResult codes"
 
-    note right of ExchangeIntegrator
-      Integration contract:
-      - idempotencyKey required for external order placement
-      - rate limiter applied per API key
-      - map external errors to OperationResult codes
-    end note

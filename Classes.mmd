@@ -1,0 +1,568 @@
+classDiagram
+    %% UTILS / RESULT / AUDIT ENTRY
+    class OperationResult {
+        -boolean success
+        -String code
+        -String message
+        -Object data
+        -List~String~ errors
+    }
+
+    class AuditEntry {
+        -UUID id
+        -UUID userId
+        -String action
+        -LocalDateTime timestamp
+        -String ip
+        -String userAgent
+        -Map~String, Object~ details
+    }
+
+    %% AUXILIARY / EXTERNAL SERVICES
+    class AMLService {
+        <<interface>>
+        +AMLResult checkTransaction(Transaction tx): AMLResult
+    }
+
+    class FraudDetectionService {
+        <<interface>>
+        +FraudScore evaluate(Transaction tx): FraudScore
+    }
+
+    class MarketAnalyzer {
+        <<interface>>
+        +MarketSignal analyze(Asset asset, int days): MarketSignal
+    }
+
+    class MachineLearningEngine {
+        <<interface>>
+        +Prediction predict(FeatureSet features): Prediction
+        +ModelVersion getCurrentModel(): ModelVersion
+    }
+
+    class RateLimiter {
+        <<infrastructure>>
+        +boolean allow(String key): boolean
+    }
+
+    class ExchangeApi {
+        <<external>>
+        +Transaction placeOrder(Order order, String idempotencyKey): Transaction
+        +BigDecimal getPrice(String symbol): BigDecimal
+    }
+
+    %% INTERFACES
+    class Auditable {
+        <<interface>>
+        +registerLog(entry: AuditEntry): void
+        +getHistory(): List~AuditLog~
+    }
+
+    class Negotiable {
+        <<interface>>
+        +calculateFee(): BigDecimal
+        +execute(): OperationResult~Transaction~
+        +revert(): OperationResult~Transaction~
+    }
+
+    class Validatable {
+        <<interface>>
+        +validate(): boolean
+        +getErrors(): List~String~
+    }
+
+    %% ENUMS
+    class UserType {
+        <<enumeration>>
+        INDIVIDUAL
+        CORPORATE
+    }
+
+    class RiskLevel {
+        <<enumeration>>
+        CONSERVATIVE
+        MODERATE
+        AGGRESSIVE
+    }
+
+    class TransactionType {
+        <<enumeration>>
+        BUY
+        SELL
+        TRANSFER
+        DEPOSIT
+        WITHDRAW
+    }
+
+    class TransactionStatus {
+        <<enumeration>>
+        PENDING
+        PROCESSING
+        EXECUTED
+        CANCELLED
+        FAILED
+        REVERSED
+    }
+
+    class AssetType {
+        <<enumeration>>
+        BITCOIN
+        ETHEREUM
+        STABLECOIN
+        ALTCOIN
+        DEFI_TOKEN
+    }
+
+    class WalletType {
+        <<enumeration>>
+        SPOT
+        EARN
+        STAKING
+        SAVINGS
+    }
+
+    class Document {
+        -UUID id
+        -DocumentType type
+        -String number
+        -LocalDate issuedAt
+        -String issuingAuthority
+    }
+
+    class DocumentType {
+        <<enumeration>>
+        CPF
+        CNPJ
+    }
+
+    %% DOMAIN ENTITIES
+    class User {
+        -UUID id
+        -String name
+        -String email
+        -List~Document~ documents
+        -LocalDate birthDate
+        -String phone
+        -String passwordHash
+        -String salt
+        -LocalDateTime createdAt
+        -LocalDateTime lastAccess
+        -LocalDateTime updatedAt
+        -boolean active
+        -boolean emailVerified
+        -boolean twoFactorEnabled
+        -String twoFactorSecret
+        -UserType userType
+        -List~AuditLog~ logs
+        +User()
+        +User(String name, String email, String document)
+        +boolean validateDocument(): boolean
+        +int calculateAge(): int
+        +boolean isActive(): boolean
+        +void activate(): void
+        +void deactivate(): void
+        +boolean verifyPassword(String password, EncryptionService encryption): boolean
+        +void updateLastAccess(): void
+        +void enableTwoFactor(String secret): void
+        +String generateRecoveryToken(): String
+    }
+
+    class InvestorProfile {
+        -UUID id
+        -UUID userId
+        -RiskLevel riskLevel
+        -BigDecimal netWorth
+        -BigDecimal monthlyIncome
+        -int yearsExperience
+        -String goals
+        -LocalDateTime assessedAt
+        -LocalDateTime nextAssessment
+        -Map~String, Integer~ questionnaireAnswers
+        -double riskScore
+        +InvestorProfile()
+        +InvestorProfile(User user, RiskLevel level)
+        +double calculateRiskScore(): double
+        +void updateProfile(Map~String, Integer~ answers): void
+        +boolean validateConsistency(): boolean
+        +RiskLevel recalculateRiskLevel(): RiskLevel
+        +boolean needsReassessment(): boolean
+        +Map~AssetType, BigDecimal~ getRecommendedAllocation(): Map
+    }
+
+    class Wallet {
+        -UUID id
+        -UUID userId
+        -String name
+        -String description
+        -BigDecimal availableBalance
+        -BigDecimal blockedBalance
+        -LocalDateTime createdAt
+        -LocalDateTime lastUpdated
+        -WalletType walletType
+        -boolean active
+        -boolean primary
+        -Long version
+        -List~Position~ positions
+        -List~Transaction~ history
+        +Wallet()
+        +Wallet(User user, String name, WalletType type)
+        +BigDecimal calculateBalance(): BigDecimal
+        +Map~String, BigDecimal~ getPerformance(LocalDate start, LocalDate end): Map
+        +void rebalance(RebalanceStrategy strategy): void
+        +BigDecimal calculateNetWorth(): BigDecimal
+        +void blockBalance(BigDecimal amount): void
+        +void unblockBalance(BigDecimal amount): void
+        +Position getPosition(Asset asset): Position
+        +List~Transaction~ getTransactions(LocalDate start, LocalDate end): List
+        +BigDecimal calculateReturn(int days): BigDecimal
+    }
+
+    class Asset {
+        -String symbol
+        -String name
+        -String fullName
+        -AssetType type
+        -BigDecimal currentPrice
+        -BigDecimal openPrice
+        -BigDecimal high24h
+        -BigDecimal low24h
+        -BigDecimal volume24h
+        -BigDecimal marketCap
+        -BigDecimal circulatingSupply
+        -BigDecimal totalSupply
+        -LocalDateTime lastUpdated
+        -boolean active
+        -int rank
+        +Asset()
+        +Asset(String symbol, String name, AssetType type)
+        +void updatePrice(BigDecimal newPrice): void
+        +BigDecimal calculateVariation(int hours): BigDecimal
+        +boolean validateAsset(): boolean
+        +BigDecimal getPriceInBRL(): BigDecimal
+        +List~PriceHistory~ getHistory(int days): List
+        +BigDecimal calculateVolatility(int days): BigDecimal
+        +boolean isStablecoin(): boolean
+    }
+
+    class Transaction {
+        -UUID id
+        -UUID walletId
+        -UUID assetId
+        -TransactionType type
+        -BigDecimal quantity
+        -BigDecimal unitPrice
+        -BigDecimal networkFee
+        -BigDecimal exchangeFee
+        -BigDecimal totalValue
+        -LocalDateTime createdAt
+        -LocalDateTime confirmedAt
+        -TransactionStatus status
+        -String blockchainHash
+        -String fromAddress
+        -String toAddress
+        -Map~String, Object~ metadata
+        -String idempotencyKey
+        -Long version
+        +Transaction()
+        +Transaction(Wallet wallet, Asset asset, TransactionType type, BigDecimal qty)
+        +BigDecimal calculateTotal(): BigDecimal
+        +void confirm(String hash): void
+        +void cancel(String reason): void
+        +boolean validate(): boolean
+        +BigDecimal calculateTax(): BigDecimal
+        +OperationResult~Transaction~ revert(): OperationResult~Transaction~
+        +Duration getConfirmationTime(): Duration
+    }
+
+    class Position {
+        -UUID id
+        -UUID walletId
+        -UUID assetId
+        -BigDecimal quantity
+        -BigDecimal averagePrice
+        -BigDecimal investedValue
+        -LocalDateTime openedAt
+        -LocalDateTime lastUpdated
+        -Long version
+        -List~Transaction~ transactions
+        +Position()
+        +Position(Asset asset, BigDecimal quantity)
+        +BigDecimal calculateCurrentValue(): BigDecimal
+        +BigDecimal calculatePnL(): BigDecimal
+        +BigDecimal calculateReturnPercent(): BigDecimal
+        +void addTransaction(Transaction t): void
+        +BigDecimal getAvailableQuantity(): BigDecimal
+    }
+
+    class Order {
+        -UUID id
+        -UUID walletId
+        -UUID assetId
+        -TransactionType type
+        -BigDecimal quantity
+        -BigDecimal limitPrice
+        -BigDecimal stopPrice
+        -LocalDateTime createdAt
+        -LocalDateTime expiresAt
+        -TransactionStatus status
+        -String orderType
+        -String idempotencyKey
+        +OperationResult~Transaction~ execute(): OperationResult~Transaction~
+        +void cancel(): void
+        +boolean reachedLimit(): boolean
+    }
+
+    %% SERVICES (detailed where auxiliary)
+    class WalletService {
+        -DatabaseConnection db
+        -TransactionValidator validator
+        -DistributedCache~UUID, Wallet~ cache
+        +Wallet createWallet(User user, String name): Wallet
+        +Wallet buildRecommendedWallet(InvestorProfile profile): Wallet
+        +void rebalanceWallet(Wallet wallet, RebalanceStrategy strategy): void
+        +Map~Asset, BigDecimal~ calculateAllocation(InvestorProfile profile, BigDecimal amount): Map
+        +List~Wallet~ listWallets(User user): List
+        +void transferBetweenWallets(Wallet from, Wallet to, BigDecimal amount): void
+        +Report generateMonthlyReport(Wallet wallet): Report
+    }
+
+    class RiskAnalyzer {
+        -static final Map~String, Double~ QUESTION_WEIGHT
+        -InvestorProfileRepository repository
+        -MarketDataService marketData
+        -AMLService amlService
+        -FraudDetectionService fraudService
+        +InvestorProfile analyzeProfile(User user, Map~String, Integer~ questionnaire): InvestorProfile
+        +double calculateRiskTolerance(InvestorProfile profile): double
+        +Map~Asset, BigDecimal~ suggestAllocation(InvestorProfile profile, BigDecimal amount): Map
+        +boolean validateOperation(InvestorProfile profile, Transaction transaction): boolean
+        +RiskReport evaluateWalletRisk(Wallet wallet): RiskReport
+        +double calculateVaR(Wallet wallet, int days): double
+        +double calculateSharpeRatio(Wallet wallet): double
+    }
+
+    class ExchangeIntegrator {
+        -String apiKey
+        -String apiSecret
+        -String baseUrl
+        -HttpClient httpClient
+        -RateLimiter rateLimiter
+        -Map~String, Object~ sessionData
+        +boolean connect(Map~String, String~ credentials): boolean
+        +Transaction executeOrder(Order order, String idempotencyKey): Transaction
+        +BigDecimal getQuote(String symbol): BigDecimal
+        +BigDecimal checkBalance(String currency): BigDecimal
+        +List~Transaction~ syncData(LocalDateTime since): List
+        +OrderBook getOrderBook(String pair): OrderBook
+        +List~Candle~ getPriceHistory(String symbol, int days): List
+        +void disconnect(): void
+    }
+
+    class RecommendationService {
+        -RiskAnalyzer riskAnalyzer
+        -MarketAnalyzer marketAnalyzer
+        -MachineLearningEngine mlEngine
+        +List~Asset~ generateRecommendations(InvestorProfile profile): List
+        +BigDecimal calculateIdealContribution(InvestorProfile profile, String goal): BigDecimal
+        +List~Opportunity~ identifyOpportunities(Market market): List
+        +List~Alert~ alertRisks(Wallet wallet): List
+        +Strategy suggestStrategy(InvestorProfile profile, Market market): Strategy
+        +double calculateSuccessProbability(Asset asset, int days): double
+    }
+
+    class NotificationService {
+        -EmailService emailService
+        -SMSService smsService
+        -PushService pushService
+        +void notifyTransaction(User user, Transaction transaction): void
+        +void alertVariation(User user, Asset asset, double variation): void
+        +void sendWeeklyReport(User user): void
+        +void alertOpportunity(User user, Opportunity opportunity): void
+    }
+
+    %% INFRA / AUTH / ENCRYPTION
+    class DatabaseConnection {
+        -static DatabaseConnection instance
+        -ConnectionPool pool
+        -Properties config
+        -DatabaseConnection()
+        +static DatabaseConnection getInstance(): DatabaseConnection
+        +Connection getConnection(): Connection
+        +void closeConnection(): void
+        +void beginTransaction(): void
+        +void commit(): void
+        +void rollback(): void
+        +PreparedStatement prepareStatement(String sql): PreparedStatement
+    }
+
+    class UserAuthenticator {
+        -EncryptionService encryptionService
+        -TokenService tokenService
+        -SessionManager sessionManager
+        +String authenticate(String email, String password): String
+        +String generateToken(User user): String
+        +boolean validateToken(String token): boolean
+        +void configure2FA(User user): void
+        +boolean validate2FA(User user, String code): boolean
+        +void logout(String token): void
+        +User getAuthenticatedUser(String token): User
+        +void renewToken(String token): String
+    }
+
+    class ReportGenerator {
+        -TemplateEngine templateEngine
+        -ChartGenerator chartGenerator
+        +byte[] generateDashboard(Wallet wallet): byte[]
+        +byte[] exportPDF(Map~String, Object~ data): byte[]
+        +Map~String, Object~ calculateMetrics(Wallet wallet, LocalDate start, LocalDate end): Map
+        +byte[] generateAccountStatement(Wallet wallet, int month, int year): byte[]
+        +byte[] generateTaxReport(User user, int year): byte[]
+    }
+
+    class EncryptionService {
+        -static final String ALGORITHM = "PBKDF2WithHmacSHA256"
+        -static final int ITERATIONS = 10000
+        -String salt
+        -SecretKey masterKey
+        +String encryptPassword(String password, String salt): String
+        +boolean verifyPassword(String password, String hash, String salt): boolean
+        +String generateApiKey(): String
+        +boolean validateSignature(byte[] data, byte[] signature): boolean
+        +String encryptData(String data): String
+        +String decryptData(String encryptedData): String
+        +String generateSalt(): String
+    }
+
+    class TransactionValidator {
+        -BigDecimal dailyLimit
+        -BigDecimal transactionLimit
+        -AMLService amlService
+        -FraudDetectionService fraudService
+        +boolean validateLimits(Transaction transaction): boolean
+        +boolean checkAML(Transaction transaction): boolean
+        +List~Anomaly~ detectAnomalies(List~Transaction~ transactions): List
+        +void auditOperation(Transaction transaction): void
+        +boolean validateBlockchainAddress(String address, AssetType type): boolean
+        +RiskScore calculateFraudScore(Transaction transaction): RiskScore
+    }
+
+    class MarketDataService {
+        +BigDecimal getCurrentPrice(String symbol): BigDecimal
+        +List~Candle~ getHistory(String symbol, int days): List
+        +BigDecimal calculateVolatility(Asset asset, int days): BigDecimal
+    }
+
+    class InvestorProfileRepository {
+        +InvestorProfile findByUser(UUID userId): InvestorProfile
+        +void save(InvestorProfile profile): void
+        +List~InvestorProfile~ listAll(): List
+    }
+
+    class EmailService {
+        +void sendEmail(String to, String subject, String body): void
+    }
+
+    class SMSService {
+        +void sendSMS(String number, String message): void
+    }
+
+    class PushService {
+        +void sendPush(String deviceId, String message): void
+    }
+
+    class AuditLog {
+        -UUID id
+        -UUID userId
+        -String action
+        -LocalDateTime timestamp
+        -String ip
+        -String userAgent
+        -Map~String, Object~ details
+    }
+
+    class TransactionService {
+        +BigDecimal calculateTax(Transaction t): BigDecimal
+        +OperationResult~Transaction~ revert(Transaction t): OperationResult~Transaction~
+    }
+
+    %% RELATIONSHIPS - IMPLEMENTATION
+    User ..|> Auditable : implements
+    User ..|> Validatable : implements
+    Transaction ..|> Negotiable : implements
+    Transaction ..|> Validatable : implements
+    Order ..|> Negotiable : implements
+    Order ..|> Validatable : implements
+    InvestorProfile ..|> Validatable : implements
+
+    %% ASSOCIATIONS / COMPOSITIONS
+    User "1" --o "1" InvestorProfile : has
+    User "1" --o "*" Wallet : owns
+    User "1" --o "*" AuditLog : generates
+    User "1" --o "*" Document : owns
+
+    Document "*" --> "1" DocumentType : classifiedBy
+
+    Wallet "1" *-- "*" Position : contains
+    Wallet "1" --o "*" Transaction : records
+    Wallet "1" --o "*" Order : creates
+
+    Position "*" --> "1" Asset : references
+    Position "1" --o "*" Transaction : aggregates
+
+    Transaction "*" --> "1" Wallet : belongsTo
+    Transaction "*" --> "1" Asset : trades
+
+    Order "*" --> "1" Wallet : linkedTo
+    Order "*" --> "1" Asset : for
+    Order "1" --> "0..1" Transaction : generates
+
+    %% DEPENDENCIES (services)
+    WalletService ..> Wallet : manages
+    WalletService ..> DatabaseConnection : uses
+    WalletService ..> TransactionValidator : validates
+
+    RiskAnalyzer ..> InvestorProfile : analyzes
+    RiskAnalyzer ..> Wallet : evaluates
+    RiskAnalyzer ..> MarketDataService : queries
+    RiskAnalyzer ..> AMLService : consults
+    RiskAnalyzer ..> FraudDetectionService : consults
+
+    ExchangeIntegrator ..> ExchangeApi : integrates
+    ExchangeIntegrator ..> Transaction : creates
+    ExchangeIntegrator ..> Order : executes
+
+    RecommendationService ..> RiskAnalyzer : consults
+    RecommendationService ..> MarketAnalyzer : queries
+    RecommendationService ..> MachineLearningEngine : predicts
+
+    UserAuthenticator ..> User : authenticates
+    UserAuthenticator ..> EncryptionService : encrypts
+    UserAuthenticator ..> DatabaseConnection : persists
+
+    TransactionValidator ..> Transaction : validates
+    TransactionValidator ..> AMLService : uses
+    TransactionValidator ..> FraudDetectionService : uses
+
+    ReportGenerator ..> Wallet : reports
+    ReportGenerator ..> Transaction : analyzes
+
+    NotificationService ..> User : notifies
+    NotificationService ..> Transaction : informs
+
+    %% INFRA SINGLETON (wrapper for pool)
+    DatabaseConnection ..> DatabaseConnection : <<Singleton>>
+
+    %% NOTES (documentation hints)
+    note right of WalletService
+      Document responsibilities:
+      - atomic wallet operations (block/unblock)
+      - optimistic locking using version
+      - cache consistency via DistributedCache invalidation
+    end note
+
+    note right of ExchangeIntegrator
+      Integration contract:
+      - idempotencyKey required for external order placement
+      - rate limiter applied per API key
+      - map external errors to OperationResult codes
+    end note
